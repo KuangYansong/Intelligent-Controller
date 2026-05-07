@@ -14,8 +14,11 @@
 
 typedef struct
 {
+    /* 11 位标准 CAN ID。 */
     uint16_t id;
+    /* Data Length Code，表示有效数据字节数。 */
     uint8_t dlc;
+    /* 最多 8 字节 CAN 负载。 */
     uint8_t data[8];
 } SscbCanFrame;
 
@@ -39,4 +42,3 @@ bool CanProtocol_ParseControl(const SscbCanFrame *frame, uint8_t node_id, SscbCo
 bool CanProtocol_ParseParamRequest(const SscbCanFrame *frame, uint8_t node_id, bool *write, SscbParamId *id, float *value);
 
 #endif
-

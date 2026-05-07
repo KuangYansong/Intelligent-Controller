@@ -9,8 +9,11 @@ typedef void (*ProtocolControlHandler)(SscbControlCommand cmd);
 
 typedef struct
 {
+    /* 指向当前生效的设备参数。 */
     SscbParams *params;
+    /* 发送 CAN 报文的回调。 */
     ProtocolFrameTx tx;
+    /* 收到控制命令后的业务处理回调。 */
     ProtocolControlHandler control_handler;
 } ProtocolService;
 
@@ -21,4 +24,3 @@ void ProtocolService_SendFault(ProtocolService *svc, const SscbFaultRecord *reco
 void ProtocolService_SendHeartbeat(ProtocolService *svc, SscbSystemState state, uint64_t runtime_s);
 
 #endif
-

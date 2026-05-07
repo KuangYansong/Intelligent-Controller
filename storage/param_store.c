@@ -6,6 +6,7 @@
 
 static uint16_t params_crc(const SscbParams *params)
 {
+    /* crc16 字段本身不参与 CRC 计算，所以只算它前面的字节。 */
     return Crc16_CcittFalse(params, offsetof(SscbParams, crc16));
 }
 
@@ -16,6 +17,7 @@ void ParamStore_Defaults(SscbParams *params)
         return;
     }
 
+    /* 这些值定义了设备出厂或损坏恢复后的默认工作参数。 */
     params->magic = SSCB_PARAMS_MAGIC;
     params->version = SSCB_PARAMS_VERSION;
     params->node_id = SSCB_DEFAULT_NODE_ID;
@@ -38,12 +40,14 @@ SscbStatus ParamStore_Load(SscbParams *params)
         return SSCB_BAD_PARAM;
     }
 
+    /* 先从 FRAM 固定地址读取整块参数结构体。 */
     SscbStatus status = Fram_Read(SSCB_FRAM_PARAM_ADDR, params, sizeof(*params));
     if (status != SSCB_OK)
     {
         return status;
     }
 
+    /* magic/version/crc/node_id 任一异常，都认为参数无效并恢复默认值。 */
     if ((params->magic != SSCB_PARAMS_MAGIC) ||
         (params->version != SSCB_PARAMS_VERSION) ||
         (params->crc16 != params_crc(params)) ||
@@ -64,6 +68,7 @@ SscbStatus ParamStore_Save(SscbParams *params)
         return SSCB_BAD_PARAM;
     }
 
+    /* 每次保存前都刷新识别头和 CRC，确保掉电后可校验。 */
     params->magic = SSCB_PARAMS_MAGIC;
     params->version = SSCB_PARAMS_VERSION;
     params->crc16 = params_crc(params);
@@ -77,6 +82,7 @@ SscbStatus ParamStore_Get(const SscbParams *params, SscbParamId id, float *value
         return SSCB_BAD_PARAM;
     }
 
+    /* 这里把枚举编号映射到结构体中的实际字段。 */
     switch (id)
     {
     case SSCB_PARAM_SHORT_THRESHOLD:
@@ -125,9 +131,11 @@ SscbStatus ParamStore_Set(SscbParams *params, SscbParamId id, float value)
 
     if (value < 0.0f)
     {
+        /* 当前参数集合不允许出现负值。 */
         return SSCB_BAD_PARAM;
     }
 
+    /* 根据参数编号修改对应字段，并在必要时做范围校验。 */
     switch (id)
     {
     case SSCB_PARAM_SHORT_THRESHOLD:
@@ -174,4 +182,3 @@ SscbStatus ParamStore_Set(SscbParams *params, SscbParamId id, float value)
 
     return ParamStore_Save(params);
 }
-
