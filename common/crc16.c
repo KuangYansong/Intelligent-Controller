@@ -3,10 +3,12 @@
 uint16_t Crc16_CcittFalse(const void *data, size_t len)
 {
     const uint8_t *bytes = (const uint8_t *)data;
+    /* CCITT-FALSE 的初值通常为 0xFFFF。 */
     uint16_t crc = 0xFFFFu;
 
     while (len-- > 0u)
     {
+        /* 逐字节、逐 bit 推进 CRC 状态机。 */
         crc ^= (uint16_t)(*bytes++) << 8;
         for (uint8_t bit = 0u; bit < 8u; bit++)
         {
@@ -23,4 +25,3 @@ uint16_t Crc16_CcittFalse(const void *data, size_t len)
 
     return crc;
 }
-

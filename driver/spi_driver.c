@@ -8,6 +8,7 @@
 SscbStatus SpiDriver_Init(void)
 {
 #ifdef SSCB_TARGET_C2000
+    /* SPIB 配成主机模式，时钟 10MHz，8bit 数据帧。 */
     SPI_disableModule(SPIB_BASE);
     SPI_setConfig(SPIB_BASE, DEVICE_LSPCLK_FREQ, SPI_PROT_POL0PHA0, SPI_MODE_MASTER, 10000000u, 8u);
     SPI_enableModule(SPIB_BASE);
@@ -17,6 +18,7 @@ SscbStatus SpiDriver_Init(void)
 
 SscbStatus SpiDriver_FramRead(uint32_t address, uint8_t *data, size_t len)
 {
+    /* 当前工程还没有补齐真机 SPI 读 FRAM 的底层流程。 */
     (void)address;
     (void)data;
     (void)len;
@@ -25,9 +27,9 @@ SscbStatus SpiDriver_FramRead(uint32_t address, uint8_t *data, size_t len)
 
 SscbStatus SpiDriver_FramWrite(uint32_t address, const uint8_t *data, size_t len)
 {
+    /* 当前工程还没有补齐真机 SPI 写 FRAM 的底层流程。 */
     (void)address;
     (void)data;
     (void)len;
     return SSCB_NOT_READY;
 }
-

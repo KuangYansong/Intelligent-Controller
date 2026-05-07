@@ -9,8 +9,10 @@ static bool s_trip;
 
 SscbStatus EpwmDriver_Init(void)
 {
+    /* 先记为未跳闸。 */
     s_trip = false;
 #ifdef SSCB_TARGET_C2000
+    /* 配置 ePWM3 输出波形和 Trip Zone 行为。 */
     EPWM_setTimeBasePeriod(EPWM3_BASE, 2500u);
     EPWM_setTimeBaseCounter(EPWM3_BASE, 0u);
     EPWM_setTimeBaseCounterMode(EPWM3_BASE, EPWM_COUNTER_MODE_UP_DOWN);
@@ -25,18 +27,20 @@ SscbStatus EpwmDriver_Init(void)
 
 void EpwmDriver_SetTrip(bool trip)
 {
+    /* 把当前跳闸状态缓存下来，便于主机模式下观察逻辑结果。 */
     s_trip = trip;
 #ifdef SSCB_TARGET_C2000
     if (trip)
     {
+        /* 强制一次性跳闸事件，立即关断输出。 */
         EPWM_forceTripZoneEvent(EPWM3_BASE, EPWM_TZ_FORCE_EVENT_OST);
     }
     else
     {
+        /* 清除跳闸标志，允许 PWM 恢复输出。 */
         EPWM_clearTripZoneFlag(EPWM3_BASE, EPWM_TZ_FLAG_OST);
     }
 #else
     (void)s_trip;
 #endif
 }
-
