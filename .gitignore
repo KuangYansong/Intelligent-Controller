@@ -6,6 +6,8 @@ dist/
 out/
 bin/
 obj/
+.dotnet-home/
+.nuget-packages/
 
 # C/C++ and embedded toolchain artifacts
 *.o

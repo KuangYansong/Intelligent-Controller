@@ -47,6 +47,9 @@ static void test_fault_log(void)
     SscbFaultRecord first;
     assert(FaultLog_Read(0u, &first) == SSCB_OK);
     assert(first.timestamp_ms == 5u);
+    assert(FaultLog_Clear() == SSCB_OK);
+    assert(FaultLog_Count() == 0u);
+    assert(FaultLog_Read(0u, &first) == SSCB_BAD_PARAM);
 }
 
 static void test_rms_i2t(void)
@@ -93,4 +96,3 @@ int main(void)
     puts("logic tests passed");
     return 0;
 }
-

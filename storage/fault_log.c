@@ -72,8 +72,15 @@ SscbStatus FaultLog_Read(uint8_t index, SscbFaultRecord *record)
     return Fram_Read(record_addr(slot), record, sizeof(*record));
 }
 
+SscbStatus FaultLog_Clear(void)
+{
+    s_meta.magic = FAULT_LOG_META_MAGIC;
+    s_meta.head = 0u;
+    s_meta.count = 0u;
+    return save_meta();
+}
+
 uint8_t FaultLog_Count(void)
 {
     return s_meta.count;
 }
-

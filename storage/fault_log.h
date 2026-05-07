@@ -7,7 +7,7 @@
 SscbStatus FaultLog_Init(void);
 SscbStatus FaultLog_Append(const SscbFaultRecord *record);
 SscbStatus FaultLog_Read(uint8_t index, SscbFaultRecord *record);
+SscbStatus FaultLog_Clear(void);
 uint8_t FaultLog_Count(void);
 
 #endif
-

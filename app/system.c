@@ -54,6 +54,22 @@ static void control_handler(SscbControlCommand cmd)
     {
         Board_SoftwareReset();
     }
+    else if (cmd == SSCB_CTRL_READ_FAULT_LOG)
+    {
+        uint8_t count = FaultLog_Count();
+        for (uint8_t i = 0u; i < count; i++)
+        {
+            SscbFaultRecord record;
+            if (FaultLog_Read(i, &record) == SSCB_OK)
+            {
+                ProtocolService_SendFault(&s_ctx->protocol, &record);
+            }
+        }
+    }
+    else if (cmd == SSCB_CTRL_CLEAR_FAULT_LOG)
+    {
+        (void)FaultLog_Clear();
+    }
 }
 
 SscbStatus System_Init(SystemContext *ctx)
@@ -170,4 +186,3 @@ void System_OnShortTripInterrupt(void)
     SscbFaultCode fault = Protection_OnShortTrip(&s_ctx->protection, &s_ctx->measurements, Timebase_NowMs());
     publish_fault(s_ctx, fault);
 }
-
