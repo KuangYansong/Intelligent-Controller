@@ -1,0 +1,51 @@
+# Build output
+Debug/
+Release/
+build/
+dist/
+out/
+bin/
+obj/
+
+# C/C++ and embedded toolchain artifacts
+*.o
+*.obj
+*.a
+*.lib
+*.dll
+*.so
+*.dylib
+*.exe
+*.elf
+*.hex
+*.bin
+*.out
+*.map
+*.d
+*.pp
+*.lst
+*.su
+*.gcda
+*.gcno
+
+# Logs and reports
+*.log
+*.tmp
+*.temp
+*.bak
+*.orig
+
+# IDE/editor local files
+.vscode/
+.idea/
+*.swp
+*.swo
+*.user
+*.suo
+*.opensdf
+*.sdf
+
+# OS metadata
+.DS_Store
+Thumbs.db
+desktop.ini
