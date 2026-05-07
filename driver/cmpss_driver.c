@@ -30,6 +30,10 @@ SscbStatus CmpssDriver_Init(float short_threshold_a)
     CMPSS_configDAC(CMPSS3_BASE, CMPSS_DACREF_VDDA | CMPSS_DACVAL_SYSCLK | CMPSS_DACSRC_SHDW);
     CMPSS_setDACValueHigh(CMPSS3_BASE, threshold_to_dac(short_threshold_a));
     CMPSS_configOutputsHigh(CMPSS3_BASE, CMPSS_TRIPOUT_ASYNC_COMP | CMPSS_TRIP_ASYNC_COMP);
+
+    /* 把 CMPSS3H 接入 ePWM XBAR 的 TRIP4，供 ePWM3 硬件快速关断使用。 */
+    XBAR_setEPWMMuxConfig(XBAR_TRIP4, XBAR_EPWM_MUX04_CMPSS3_CTRIPH);
+    XBAR_enableEPWMMux(XBAR_TRIP4, XBAR_MUX04);
 #else
     (void)short_threshold_a;
 #endif

@@ -4,6 +4,7 @@
 #ifdef SSCB_TARGET_C2000
 #include "driverlib.h"
 #include "device.h"
+#include "pin_map.h"
 #endif
 
 static CanRxCallback s_rx_callback;
@@ -14,6 +15,13 @@ SscbStatus CanDriver_Init(CanRxCallback callback)
     /* 保存回调，真实硬件或后续扩展接收逻辑时会用到。 */
     s_rx_callback = callback;
 #ifdef SSCB_TARGET_C2000
+    /* CANB 连接在 GPIO16/17，对应外部收发器 RX/TX。 */
+    GPIO_setPinConfig(GPIO_16_CANTXB);
+    GPIO_setPinConfig(GPIO_17_CANRXB);
+    GPIO_setDirectionMode(16u, GPIO_DIR_MODE_OUT);
+    GPIO_setDirectionMode(17u, GPIO_DIR_MODE_IN);
+    GPIO_setQualificationMode(17u, GPIO_QUAL_ASYNC);
+
     /* 硬件模式下初始化 CANB 并配置波特率。 */
     CAN_initModule(CANB_BASE);
     CAN_setBitRate(CANB_BASE, DEVICE_SYSCLK_FREQ, SSCB_CAN_BITRATE, 20u);
