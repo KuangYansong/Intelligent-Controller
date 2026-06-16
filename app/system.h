@@ -3,6 +3,7 @@
 
 #include <stdbool.h>
 #include "common/parameters.h"
+#include "common/timebase.h"
 #include "common/sscb_types.h"
 #include "protection/protection.h"
 #include "storage/fault_log.h"
@@ -15,6 +16,7 @@ typedef struct {
     sscb_fault_t active_fault;
     uint16_t status_word;
     uint32_t time_ms;
+    sscb_timebase_t *timebase;
     uint16_t recover_elapsed_ms;
     bool trip_clear;
     bool driver_ready;
@@ -22,6 +24,7 @@ typedef struct {
 } sscb_system_t;
 
 void sscb_system_init(sscb_system_t *sys);
+void sscb_system_attach_timebase(sscb_system_t *sys, sscb_timebase_t *timebase);
 sscb_state_t sscb_system_state(const sscb_system_t *sys);
 sscb_status_t sscb_system_start(sscb_system_t *sys);
 void sscb_system_tick_1ms(sscb_system_t *sys, const sscb_measurements_t *m);

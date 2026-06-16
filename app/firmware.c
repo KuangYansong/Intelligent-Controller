@@ -14,6 +14,7 @@
 static void send_periodic_frames(sscb_firmware_t *fw, const sscb_measurements_t *m)
 {
     sscb_can_frame_t frame;
+    uint64_t runtime_seconds;
 
     fw->realtime_elapsed_ms++;
     fw->heartbeat_elapsed_ms++;
@@ -27,8 +28,9 @@ static void send_periodic_frames(sscb_firmware_t *fw, const sscb_measurements_t 
 
     if (fw->heartbeat_elapsed_ms >= fw->system.params.heartbeat_period_ms) {
         fw->heartbeat_elapsed_ms = 0u;
+        runtime_seconds = sscb_timebase_absolute_ms(&fw->timebase) / 1000u;
         if (sscb_can_make_heartbeat(fw->system.params.node_id, fw->system.state,
-                                    fw->system.status_word, &frame) == SSCB_OK) {
+                                    runtime_seconds, &frame) == SSCB_OK) {
             (void)sscb_can_driver_send(&frame);
         }
     }
@@ -45,9 +47,45 @@ static void handle_can_request(sscb_firmware_t *fw)
 
     if (sscb_protocol_handle_frame(&fw->system, &request, &response) == SSCB_OK) {
         (void)sscb_can_driver_send(&response);
-        (void)sscb_param_store_save(&fw->param_store, &fw->system.params);
-        (void)sscb_cmpss_driver_set_dac(sscb_short_threshold_to_dac_code(&fw->system.params));
+        if (request.id == (uint16_t)(SSCB_CAN_ID_PARAM_BASE + fw->system.params.node_id) &&
+            request.data[0] == 0x11u) {
+            (void)sscb_param_store_save_to_fram(&fw->fram, &fw->param_store, &fw->system.params);
+            (void)sscb_cmpss_driver_set_dac(sscb_short_threshold_to_dac_code(&fw->system.params));
+        } else if (request.id == (uint16_t)(SSCB_CAN_ID_CONTROL_BASE + fw->system.params.node_id) &&
+                   request.data[0] == 0x04u) {
+            (void)sscb_fault_log_save_to_fram(&fw->fram, &fw->system.fault_log);
+            fw->fault_log_saved_total_count = fw->system.fault_log.total_count;
+        } else if (request.id == (uint16_t)(SSCB_CAN_ID_CONTROL_BASE + fw->system.params.node_id) &&
+                   request.data[0] == 0x03u) {
+            /* fault log read is informational only */
+        }
     }
+}
+
+static void sync_fault_log_to_fram(sscb_firmware_t *fw)
+{
+    if (fw->system.fault_log.total_count != fw->fault_log_saved_total_count) {
+        (void)sscb_fault_log_save_to_fram(&fw->fram, &fw->system.fault_log);
+        fw->fault_log_saved_total_count = fw->system.fault_log.total_count;
+    }
+}
+
+static void send_new_fault_report(sscb_firmware_t *fw)
+{
+    sscb_fault_record_t record;
+    sscb_can_frame_t frame;
+
+    if (fw->system.fault_log.total_count == fw->fault_log_reported_total_count) {
+        return;
+    }
+    if (sscb_fault_log_get_latest(&fw->system.fault_log, 0u, &record) != SSCB_OK) {
+        return;
+    }
+    if (sscb_can_make_fault(fw->system.params.node_id, record.fault, (uint32_t)record.timestamp_ms,
+                            record.current_pga_da, record.voltage_dv, &frame) == SSCB_OK) {
+        (void)sscb_can_driver_send(&frame);
+    }
+    fw->fault_log_reported_total_count = fw->system.fault_log.total_count;
 }
 
 sscb_status_t sscb_firmware_init(sscb_firmware_t *fw)
@@ -62,11 +100,14 @@ sscb_status_t sscb_firmware_init(sscb_firmware_t *fw)
 
     sscb_system_init(&fw->system);
     sscb_timebase_init(&fw->timebase);
+    sscb_system_attach_timebase(&fw->system, &fw->timebase);
     sscb_fram_init(&fw->fram);
     sscb_param_store_init(&fw->param_store);
     fw->gate_driver_config = sscb_gate_driver_default_config();
     fw->realtime_elapsed_ms = 0u;
     fw->heartbeat_elapsed_ms = 0u;
+    fw->fault_log_saved_total_count = 0u;
+    fw->fault_log_reported_total_count = 0u;
 
     if (sscb_board_init() != SSCB_OK) return SSCB_ERR_ARG;
     if (sscb_gate_driver_init() != SSCB_OK) return SSCB_ERR_ARG;
@@ -79,7 +120,11 @@ sscb_status_t sscb_firmware_init(sscb_firmware_t *fw)
     if (sscb_fram_hw_init() != SSCB_OK) return SSCB_ERR_ARG;
     if (sscb_driver_status_init() != SSCB_OK) return SSCB_ERR_ARG;
 
-    (void)sscb_param_store_load(&fw->param_store, &fw->system.params);
+    (void)sscb_param_store_load_from_fram(&fw->fram, &fw->param_store, &fw->system.params);
+    (void)sscb_fault_log_load_from_fram(&fw->fram, &fw->system.fault_log);
+    fw->fault_log_saved_total_count = fw->system.fault_log.total_count;
+    fw->fault_log_reported_total_count = fw->system.fault_log.total_count;
+    sscb_protection_init(&fw->system.protection, &fw->system.params);
     (void)sscb_cmpss_driver_set_dac(sscb_short_threshold_to_dac_code(&fw->system.params));
 
     driver_status = sscb_driver_status_read();
@@ -128,6 +173,8 @@ void sscb_firmware_run_once(sscb_firmware_t *fw)
     }
 
     send_periodic_frames(fw, &m);
+    send_new_fault_report(fw);
     handle_can_request(fw);
+    sync_fault_log_to_fram(fw);
     sscb_timebase_tick_ms(&fw->timebase);
 }

@@ -1,6 +1,9 @@
 #include "storage/fram.h"
 #include "bsp/board_resources.h"
 #include "driver/spi_driver.h"
+#ifndef SSCB_TARGET_C2000
+#include <string.h>
+#endif
 
 #ifdef __TMS320C28XX__
 #include "device.h"
@@ -13,6 +16,9 @@ void sscb_fram_init(sscb_fram_t *fram)
         return;
     }
     fram->initialized = 1u;
+#ifndef SSCB_TARGET_C2000
+    memset(fram->memory, 0xFF, sizeof(fram->memory));
+#endif
 }
 
 sscb_status_t sscb_fram_hw_init(void)
@@ -44,7 +50,12 @@ sscb_status_t sscb_fram_read(const sscb_fram_t *fram, uint32_t address, uint8_t 
         address >= SSCB_FRAM_MEMORY_SIZE || len > SSCB_FRAM_MEMORY_SIZE - address) {
         return SSCB_ERR_ARG;
     }
+#ifndef SSCB_TARGET_C2000
+    memcpy(data, &fram->memory[address], len);
+    return SSCB_OK;
+#else
     return fram_spi_command(SSCB_FRAM_CMD_READ, address, 0, data, len);
+#endif
 }
 
 sscb_status_t sscb_fram_write(sscb_fram_t *fram, uint32_t address, const uint8_t *data, uint16_t len)
@@ -56,10 +67,15 @@ sscb_status_t sscb_fram_write(sscb_fram_t *fram, uint32_t address, const uint8_t
         address >= SSCB_FRAM_MEMORY_SIZE || len > SSCB_FRAM_MEMORY_SIZE - address) {
         return SSCB_ERR_ARG;
     }
+#ifndef SSCB_TARGET_C2000
+    memcpy(&fram->memory[address], data, len);
+    return SSCB_OK;
+#else
     wren = SSCB_FRAM_CMD_WREN;
     rc = sscb_spi_transfer(&wren, 0, 1u);
     if (rc != SSCB_OK) {
         return rc;
     }
     return fram_spi_command(SSCB_FRAM_CMD_WRITE, address, data, 0, len);
+#endif
 }

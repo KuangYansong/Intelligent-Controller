@@ -49,7 +49,9 @@ sscb_status_t sscb_params_set(sscb_params_t *p, uint8_t id, uint32_t value)
 
     switch (id) {
     case SSCB_PARAM_NODE_ID:
-        return value == 1u ? SSCB_OK : SSCB_ERR_RANGE;
+        if (!in_range_u32(value, 1u, 127u)) return SSCB_ERR_RANGE;
+        p->node_id = (uint8_t)value;
+        return SSCB_OK;
     case SSCB_PARAM_SHORT_THRESHOLD_A:
         if (!in_range_u32(value, 500u, 2000u)) return SSCB_ERR_RANGE;
         p->short_threshold_a = (uint16_t)value;
@@ -128,6 +130,9 @@ sscb_status_t sscb_params_get(const sscb_params_t *p, uint8_t id, uint32_t *valu
     case SSCB_PARAM_OVER_TEMP_RETURN_DC: *value = (uint32_t)p->over_temp_return_dc; return SSCB_OK;
     case SSCB_PARAM_RECOVER_MODE: *value = p->recover_mode; return SSCB_OK;
     case SSCB_PARAM_CMPSS_DAC_REF_MV: *value = p->cmpss_dac_ref_mv; return SSCB_OK;
+    case SSCB_PARAM_VOLTAGE_GAIN_MV_PER_COUNT: *value = p->voltage_gain_mv_per_count; return SSCB_OK;
+    case SSCB_PARAM_CURRENT_PGA_GAIN_MA_PER_COUNT: *value = p->current_pga_gain_ma_per_count; return SSCB_OK;
+    case SSCB_PARAM_CURRENT_RAW_GAIN_MA_PER_COUNT: *value = p->current_raw_gain_ma_per_count; return SSCB_OK;
     default: return SSCB_ERR_NOT_FOUND;
     }
 }

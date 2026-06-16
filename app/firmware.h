@@ -15,6 +15,8 @@ typedef struct {
     sscb_gate_driver_config_t gate_driver_config;
     uint16_t realtime_elapsed_ms;
     uint16_t heartbeat_elapsed_ms;
+    uint32_t fault_log_saved_total_count;
+    uint32_t fault_log_reported_total_count;
 } sscb_firmware_t;
 
 sscb_status_t sscb_firmware_init(sscb_firmware_t *fw);

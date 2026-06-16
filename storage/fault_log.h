@@ -2,6 +2,7 @@
 #define SSCB_FAULT_LOG_H
 
 #include "common/sscb_types.h"
+#include "storage/fram.h"
 
 #define SSCB_FAULT_LOG_CAPACITY 50u
 
@@ -28,8 +29,12 @@ typedef struct {
 } sscb_fault_log_t;
 
 void sscb_fault_log_init(sscb_fault_log_t *log);
+void sscb_fault_log_clear(sscb_fault_log_t *log);
 sscb_status_t sscb_fault_log_append(sscb_fault_log_t *log, const sscb_fault_record_t *record);
 uint16_t sscb_fault_log_count(const sscb_fault_log_t *log);
 sscb_status_t sscb_fault_log_get_latest(const sscb_fault_log_t *log, uint16_t latest_index, sscb_fault_record_t *out);
+sscb_status_t sscb_fault_log_get_chronological(const sscb_fault_log_t *log, uint16_t index, sscb_fault_record_t *out);
+sscb_status_t sscb_fault_log_save_to_fram(sscb_fram_t *fram, sscb_fault_log_t *log);
+sscb_status_t sscb_fault_log_load_from_fram(const sscb_fram_t *fram, sscb_fault_log_t *log);
 
 #endif

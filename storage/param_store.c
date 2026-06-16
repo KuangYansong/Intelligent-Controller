@@ -79,3 +79,42 @@ sscb_status_t sscb_param_store_load(sscb_param_store_t *store, sscb_params_t *pa
     (void)sscb_param_store_save(store, params);
     return SSCB_ERR_NOT_FOUND;
 }
+
+sscb_status_t sscb_param_store_save_to_fram(sscb_fram_t *fram, sscb_param_store_t *store, const sscb_params_t *params)
+{
+    sscb_status_t rc;
+
+    if (fram == 0 || store == 0 || params == 0) {
+        return SSCB_ERR_ARG;
+    }
+
+    rc = sscb_param_store_save(store, params);
+    if (rc != SSCB_OK) {
+        return rc;
+    }
+    return sscb_fram_write(fram, SSCB_FRAM_PARAM_STORE_ADDR, (const uint8_t *)store, (uint16_t)sizeof(*store));
+}
+
+sscb_status_t sscb_param_store_load_from_fram(const sscb_fram_t *fram, sscb_param_store_t *store, sscb_params_t *params)
+{
+    sscb_status_t rc;
+
+    if (fram == 0 || store == 0 || params == 0) {
+        return SSCB_ERR_ARG;
+    }
+
+    sscb_param_store_init(store);
+    rc = sscb_fram_read(fram, SSCB_FRAM_PARAM_STORE_ADDR, (uint8_t *)store, (uint16_t)sizeof(*store));
+    if (rc != SSCB_OK) {
+        sscb_params_load_defaults(params);
+        (void)sscb_param_store_save(store, params);
+        (void)sscb_fram_write((sscb_fram_t *)fram, SSCB_FRAM_PARAM_STORE_ADDR, (const uint8_t *)store, (uint16_t)sizeof(*store));
+        return rc;
+    }
+
+    rc = sscb_param_store_load(store, params);
+    if (rc != SSCB_OK) {
+        (void)sscb_fram_write((sscb_fram_t *)fram, SSCB_FRAM_PARAM_STORE_ADDR, (const uint8_t *)store, (uint16_t)sizeof(*store));
+    }
+    return rc;
+}

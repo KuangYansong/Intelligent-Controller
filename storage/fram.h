@@ -4,9 +4,14 @@
 #include "common/sscb_types.h"
 
 #define SSCB_FRAM_MEMORY_SIZE 0x40000ul
+#define SSCB_FRAM_PARAM_STORE_ADDR 0x00100ul
+#define SSCB_FRAM_FAULT_LOG_ADDR 0x01100ul
 
 typedef struct {
     uint8_t initialized;
+#ifndef SSCB_TARGET_C2000
+    uint8_t memory[SSCB_FRAM_MEMORY_SIZE];
+#endif
 } sscb_fram_t;
 
 void sscb_fram_init(sscb_fram_t *fram);

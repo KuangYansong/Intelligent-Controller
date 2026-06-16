@@ -2,6 +2,7 @@
 #define SSCB_PARAM_STORE_H
 
 #include "common/parameters.h"
+#include "storage/fram.h"
 
 #define SSCB_PARAM_STORE_MAGIC 0x53534342u
 
@@ -22,5 +23,7 @@ typedef struct {
 void sscb_param_store_init(sscb_param_store_t *store);
 sscb_status_t sscb_param_store_save(sscb_param_store_t *store, const sscb_params_t *params);
 sscb_status_t sscb_param_store_load(sscb_param_store_t *store, sscb_params_t *params);
+sscb_status_t sscb_param_store_save_to_fram(sscb_fram_t *fram, sscb_param_store_t *store, const sscb_params_t *params);
+sscb_status_t sscb_param_store_load_from_fram(const sscb_fram_t *fram, sscb_param_store_t *store, sscb_params_t *params);
 
 #endif

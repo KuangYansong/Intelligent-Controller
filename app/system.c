@@ -3,6 +3,7 @@
 static void append_fault(sscb_system_t *sys, sscb_fault_t fault, const sscb_measurements_t *m)
 {
     sscb_fault_record_t rec;
+    uint64_t timestamp_ms;
     if (sys == 0 || m == 0 || fault == SSCB_FAULT_NONE) {
         return;
     }
@@ -11,7 +12,8 @@ static void append_fault(sscb_system_t *sys, sscb_fault_t fault, const sscb_meas
     rec.fault = fault;
     rec.state = sys->state;
     rec.flags = 0u;
-    rec.timestamp_ms = sys->time_ms;
+    timestamp_ms = sys->timebase != 0 ? sscb_timebase_absolute_ms(sys->timebase) : (uint64_t)sys->time_ms;
+    rec.timestamp_ms = timestamp_ms;
     rec.voltage_dv = m->voltage_dv;
     rec.current_pga_da = m->current_pga_da;
     rec.current_raw_da = m->current_raw_da;
@@ -34,10 +36,19 @@ void sscb_system_init(sscb_system_t *sys)
     sys->active_fault = SSCB_FAULT_NONE;
     sys->status_word = SSCB_STATUS_NORMAL;
     sys->time_ms = 0u;
+    sys->timebase = 0;
     sys->recover_elapsed_ms = 0u;
     sys->trip_clear = true;
     sys->driver_ready = true;
     sys->fault_conditions_clear = true;
+}
+
+void sscb_system_attach_timebase(sscb_system_t *sys, sscb_timebase_t *timebase)
+{
+    if (sys == 0) {
+        return;
+    }
+    sys->timebase = timebase;
 }
 
 sscb_state_t sscb_system_state(const sscb_system_t *sys)
