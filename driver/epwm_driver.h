@@ -1,12 +1,12 @@
-#ifndef EPWM_DRIVER_H
-#define EPWM_DRIVER_H
+#ifndef SSCB_EPWM_DRIVER_H
+#define SSCB_EPWM_DRIVER_H
 
 #include <stdbool.h>
-#include "sscb_types.h"
+#include "common/sscb_types.h"
 
-/* 初始化 ePWM 输出。 */
-SscbStatus EpwmDriver_Init(void);
-/* 触发或解除跳闸输出。 */
-void EpwmDriver_SetTrip(bool trip);
+sscb_status_t sscb_epwm_driver_init_trip_chain(void);
+void sscb_epwm_force_off(void);
+void sscb_epwm_allow_output(bool enable);
+bool sscb_epwm_output_enabled(void);
 
 #endif

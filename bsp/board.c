@@ -1,62 +1,44 @@
-#include "board.h"
-#include "adc_driver.h"
-#include "can_driver.h"
-#include "cmpss_driver.h"
-#include "epwm_driver.h"
-#include "fram.h"
-#include "system.h"
+#include "bsp/board.h"
+#include "bsp/board_resources.h"
 
-#ifdef SSCB_TARGET_C2000
-#include "driverlib.h"
+#ifdef __TMS320C28XX__
 #include "device.h"
-
-__interrupt static void board_epwm3_trip_isr(void)
-{
-    /* ePWM3 Trip 触发后，立即转给系统层记录短路/故障事件。 */
-    System_OnShortTripInterrupt();
-    EPWM_clearTripZoneFlag(EPWM3_BASE, EPWM_TZ_INTERRUPT | EPWM_TZ_FLAG_OST | EPWM_TZ_FLAG_DCAEVT1);
-    Interrupt_clearACKGroup(INTERRUPT_ACK_GROUP2);
-}
+#include "driverlib.h"
 #endif
 
-SscbStatus Board_Init(void)
+sscb_status_t sscb_board_init(void)
 {
-#ifdef SSCB_TARGET_C2000
+#ifdef __TMS320C28XX__
     Device_init();
     Device_initGPIO();
+
+    GPIO_setPinConfig(GPIO_4_EPWM3_A);
+    GPIO_setPinConfig(GPIO_16_CANB_TX);
+    GPIO_setPinConfig(GPIO_17_CANB_RX);
+    GPIO_setPinConfig(GPIO_6_SPIB_SOMI);
+    GPIO_setPinConfig(GPIO_7_SPIB_SIMO);
+    GPIO_setPinConfig(GPIO_14_SPIB_CLK);
+    GPIO_setPinConfig(GPIO_15_SPIB_STE);
+    GPIO_setPinConfig(GPIO_0_I2CA_SDA);
+    GPIO_setPinConfig(GPIO_1_I2CA_SCL);
+
+    GPIO_setPadConfig(SSCB_GPIO_FLT_N, GPIO_PIN_TYPE_PULLUP);
+    GPIO_setDirectionMode(SSCB_GPIO_FLT_N, GPIO_DIR_MODE_IN);
+    GPIO_setQualificationMode(SSCB_GPIO_FLT_N, GPIO_QUAL_3SAMPLE);
+
+    GPIO_setPadConfig(SSCB_GPIO_RDYC, GPIO_PIN_TYPE_PULLUP);
+    GPIO_setDirectionMode(SSCB_GPIO_RDYC, GPIO_DIR_MODE_IN);
+    GPIO_setQualificationMode(SSCB_GPIO_RDYC, GPIO_QUAL_3SAMPLE);
+
     Interrupt_initModule();
     Interrupt_initVectorTable();
-    Interrupt_register(INT_EPWM3_TZ, &board_epwm3_trip_isr);
-    Interrupt_enable(INT_EPWM3_TZ);
-#endif
-    if (AdcDriver_Init() != SSCB_OK)
-    {
-        return SSCB_ERROR;
-    }
-    if (EpwmDriver_Init() != SSCB_OK)
-    {
-        return SSCB_ERROR;
-    }
-    if (Fram_Init() != SSCB_OK)
-    {
-        return SSCB_ERROR;
-    }
-#ifdef SSCB_TARGET_C2000
-    Interrupt_enableMaster();
 #endif
     return SSCB_OK;
 }
 
-void Board_Idle(void)
+void sscb_board_enter_idle(void)
 {
-#ifdef SSCB_TARGET_C2000
+#ifdef __TMS320C28XX__
     IDLE;
-#endif
-}
-
-void Board_SoftwareReset(void)
-{
-#ifdef SSCB_TARGET_C2000
-    SysCtl_resetDevice();
 #endif
 }

@@ -1,21 +1,19 @@
-#include "system.h"
+#include "app/firmware.h"
 
 int main(void)
 {
-    /* system 保存整个固件运行过程中要反复使用的状态和数据。 */
-    static SystemContext system;
+    static sscb_firmware_t firmware;
 
-    /* 上电后先做一次完整初始化，失败则停在这里等待排查。 */
-    if (System_Init(&system) != SSCB_OK)
-    {
-        for (;;)
-        {
+    if (sscb_firmware_init(&firmware) != SSCB_OK) {
+        for (;;) {
         }
     }
 
-    /* 初始化成功后，主循环不断重复执行一次系统任务。 */
-    for (;;)
-    {
-        System_RunOnce(&system);
+    if (firmware.system.state == SSCB_STATE_READY) {
+        (void)sscb_system_start(&firmware.system);
+    }
+
+    for (;;) {
+        sscb_firmware_run_once(&firmware);
     }
 }

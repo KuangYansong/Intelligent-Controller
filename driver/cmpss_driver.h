@@ -1,11 +1,11 @@
-#ifndef CMPSS_DRIVER_H
-#define CMPSS_DRIVER_H
+#ifndef SSCB_CMPSS_DRIVER_H
+#define SSCB_CMPSS_DRIVER_H
 
-#include "sscb_types.h"
+#include <stdint.h>
+#include "common/sscb_types.h"
 
-/* 初始化短路比较器并设置初始门限。 */
-SscbStatus CmpssDriver_Init(float short_threshold_a);
-/* 动态调整短路比较器门限。 */
-void CmpssDriver_SetThreshold(float short_threshold_a);
+sscb_status_t sscb_cmpss_driver_init(uint16_t dac_code);
+sscb_status_t sscb_cmpss_driver_set_dac(uint16_t dac_code);
+uint16_t sscb_cmpss_driver_last_dac(void);
 
 #endif

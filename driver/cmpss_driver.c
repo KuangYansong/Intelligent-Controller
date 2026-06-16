@@ -1,51 +1,41 @@
-#include "cmpss_driver.h"
-#include "sscb_config.h"
+#include "driver/cmpss_driver.h"
 
-#ifdef SSCB_TARGET_C2000
-#include "driverlib.h"
+#ifdef __TMS320C28XX__
 #include "device.h"
+#include "driverlib.h"
 #endif
 
-static uint16_t threshold_to_dac(float threshold_a)
-{
-    /* 这里用默认短路阈值做归一化，把安培值映射到 DAC 码值。 */
-    float ratio = threshold_a / SSCB_DEFAULT_SHORT_A;
-    if (ratio < 0.0f)
-    {
-        ratio = 0.0f;
-    }
-    if (ratio > 1.0f)
-    {
-        ratio = 1.0f;
-    }
-    return (uint16_t)(ratio * 4095.0f);
-}
+static uint16_t g_cmpss_dac_code;
 
-SscbStatus CmpssDriver_Init(float short_threshold_a)
+sscb_status_t sscb_cmpss_driver_init(uint16_t dac_code)
 {
-#ifdef SSCB_TARGET_C2000
-    /* 配置 CMPSS3 的高比较器和内部 DAC，用于短路快速检测。 */
+    sscb_status_t rc;
+#ifdef __TMS320C28XX__
     CMPSS_enableModule(CMPSS3_BASE);
     CMPSS_configHighComparator(CMPSS3_BASE, CMPSS_INSRC_DAC);
-    CMPSS_configDAC(CMPSS3_BASE, CMPSS_DACREF_VDDA | CMPSS_DACVAL_SYSCLK | CMPSS_DACSRC_SHDW);
-    CMPSS_setDACValueHigh(CMPSS3_BASE, threshold_to_dac(short_threshold_a));
+    CMPSS_configDAC(CMPSS3_BASE, CMPSS_DACVAL_SYSCLK | CMPSS_DACREF_VDDA | CMPSS_DACSRC_SHDW);
     CMPSS_configOutputsHigh(CMPSS3_BASE, CMPSS_TRIPOUT_ASYNC_COMP | CMPSS_TRIP_ASYNC_COMP);
+#endif
+    rc = sscb_cmpss_driver_set_dac(dac_code);
+#ifdef __TMS320C28XX__
+    CMPSS_initFilterHigh(CMPSS3_BASE);
+#endif
+    return rc;
+}
 
-    /* 把 CMPSS3H 接入 ePWM XBAR 的 TRIP4，供 ePWM3 硬件快速关断使用。 */
-    XBAR_setEPWMMuxConfig(XBAR_TRIP4, XBAR_EPWM_MUX04_CMPSS3_CTRIPH);
-    XBAR_enableEPWMMux(XBAR_TRIP4, XBAR_MUX04);
-#else
-    (void)short_threshold_a;
+sscb_status_t sscb_cmpss_driver_set_dac(uint16_t dac_code)
+{
+    if (dac_code > 4095u) {
+        return SSCB_ERR_RANGE;
+    }
+    g_cmpss_dac_code = dac_code;
+#ifdef __TMS320C28XX__
+    CMPSS_setDACValueHigh(CMPSS3_BASE, dac_code);
 #endif
     return SSCB_OK;
 }
 
-void CmpssDriver_SetThreshold(float short_threshold_a)
+uint16_t sscb_cmpss_driver_last_dac(void)
 {
-#ifdef SSCB_TARGET_C2000
-    /* 参数更新后，把新的短路门限同步到比较器 DAC。 */
-    CMPSS_setDACValueHigh(CMPSS3_BASE, threshold_to_dac(short_threshold_a));
-#else
-    (void)short_threshold_a;
-#endif
+    return g_cmpss_dac_code;
 }

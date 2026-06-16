@@ -1,64 +1,65 @@
-#include "fram.h"
-#include "sscb_config.h"
+#include "storage/fram.h"
+#include "bsp/board_resources.h"
+#include "driver/spi_driver.h"
 
-#ifdef SSCB_TARGET_C2000
-#include "spi_driver.h"
+#ifdef __TMS320C28XX__
+#include "device.h"
+#include "driverlib.h"
 #endif
 
-#ifndef SSCB_TARGET_C2000
-/* 主机测试模式下，用一块内存数组模拟整片 FRAM。 */
-static uint8_t s_host_fram[SSCB_FRAM_SIZE_BYTES];
-#endif
-
-SscbStatus Fram_Init(void)
+void sscb_fram_init(sscb_fram_t *fram)
 {
-#ifdef SSCB_TARGET_C2000
-    /* 真机上把初始化工作交给 SPI 驱动。 */
-    return SpiDriver_Init();
-#else
-    /* 主机模式没有真实硬件，内存数组天然可用。 */
-    return SSCB_OK;
-#endif
+    if (fram == 0) {
+        return;
+    }
+    fram->initialized = 1u;
 }
 
-SscbStatus Fram_Read(uint32_t address, void *data, size_t len)
+sscb_status_t sscb_fram_hw_init(void)
 {
-    if ((data == 0) || ((address + len) > SSCB_FRAM_SIZE_BYTES))
-    {
-        return SSCB_BAD_PARAM;
-    }
-
-#ifdef SSCB_TARGET_C2000
-    /* 真机从外部 FRAM 芯片读取。 */
-    return SpiDriver_FramRead(address, (uint8_t *)data, len);
-#else
-    /* 主机模式直接从模拟内存中拷贝。 */
-    uint8_t *dst = (uint8_t *)data;
-    for (size_t i = 0u; i < len; i++)
-    {
-        dst[i] = s_host_fram[address + i];
-    }
-    return SSCB_OK;
-#endif
+    return sscb_spi_driver_init();
 }
 
-SscbStatus Fram_Write(uint32_t address, const void *data, size_t len)
+static sscb_status_t fram_spi_command(uint8_t command, uint32_t address,
+                                      const uint8_t *tx, uint8_t *rx, uint16_t len)
 {
-    if ((data == 0) || ((address + len) > SSCB_FRAM_SIZE_BYTES))
-    {
-        return SSCB_BAD_PARAM;
-    }
+    uint8_t hdr[4];
+    sscb_status_t rc;
 
-#ifdef SSCB_TARGET_C2000
-    /* 真机写外部 FRAM 芯片。 */
-    return SpiDriver_FramWrite(address, (const uint8_t *)data, len);
-#else
-    /* 主机模式写入模拟内存。 */
-    const uint8_t *src = (const uint8_t *)data;
-    for (size_t i = 0u; i < len; i++)
-    {
-        s_host_fram[address + i] = src[i];
+    hdr[0] = command;
+    hdr[1] = (uint8_t)((address >> 16) & 0xFFu);
+    hdr[2] = (uint8_t)((address >> 8) & 0xFFu);
+    hdr[3] = (uint8_t)(address & 0xFFu);
+
+    rc = sscb_spi_transfer(hdr, 0, 4u);
+    if (rc != SSCB_OK) {
+        return rc;
     }
-    return SSCB_OK;
-#endif
+    return sscb_spi_transfer(tx, rx, len);
+}
+
+sscb_status_t sscb_fram_read(const sscb_fram_t *fram, uint32_t address, uint8_t *data, uint16_t len)
+{
+    if (fram == 0 || data == 0 || fram->initialized == 0u ||
+        address >= SSCB_FRAM_MEMORY_SIZE || len > SSCB_FRAM_MEMORY_SIZE - address) {
+        return SSCB_ERR_ARG;
+    }
+    return fram_spi_command(SSCB_FRAM_CMD_READ, address, 0, data, len);
+}
+
+sscb_status_t sscb_fram_write(sscb_fram_t *fram, uint32_t address, const uint8_t *data, uint16_t len)
+{
+    uint8_t wren;
+    sscb_status_t rc;
+
+    if (fram == 0 || data == 0 || fram->initialized == 0u ||
+        address >= SSCB_FRAM_MEMORY_SIZE || len > SSCB_FRAM_MEMORY_SIZE - address) {
+        return SSCB_ERR_ARG;
+    }
+    wren = SSCB_FRAM_CMD_WREN;
+    rc = sscb_spi_transfer(&wren, 0, 1u);
+    if (rc != SSCB_OK) {
+        return rc;
+    }
+    return fram_spi_command(SSCB_FRAM_CMD_WRITE, address, data, 0, len);
 }

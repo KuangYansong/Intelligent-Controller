@@ -1,33 +1,31 @@
-#include "selftest.h"
-#include "sscb_config.h"
+#include "selftest/selftest.h"
 
-SelfTestResult SelfTest_RunPowerOn(const SscbAdcRaw *raw)
+sscb_selftest_result_t sscb_selftest_run(const sscb_selftest_inputs_t *in)
 {
-    SelfTestResult result;
-    result.adc_range_ok = (raw != 0) &&
-                          (raw->voltage_raw <= SSCB_ADC_MAX_COUNTS) &&
-                          (raw->current_raw <= SSCB_ADC_MAX_COUNTS) &&
-                          (raw->temp_raw <= SSCB_ADC_MAX_COUNTS);
-    result.sampling_ok = result.adc_range_ok;
-    result.cmpss_config_ok = true;
+    sscb_selftest_result_t result;
+    result.flags = 0u;
+    result.fault = SSCB_FAULT_NONE;
+
+    if (in == 0) {
+        result.flags = 0xFFFFu;
+        result.fault = SSCB_FAULT_SAMPLE_ABNORMAL;
+        return result;
+    }
+    if (!in->adc_range_ok) {
+        result.flags |= 1u << 0;
+        result.fault = SSCB_FAULT_SAMPLE_ABNORMAL;
+    }
+    if (!in->ntc_ok) {
+        result.flags |= 1u << 1;
+        result.fault = SSCB_FAULT_SAMPLE_ABNORMAL;
+    }
+    if (!in->cmpss_config_ok) {
+        result.flags |= 1u << 2;
+        result.fault = SSCB_FAULT_SAMPLE_ABNORMAL;
+    }
+    if (!in->driver_ready || !in->driver_fault_clear) {
+        result.flags |= 1u << 3;
+        result.fault = SSCB_FAULT_DRIVER;
+    }
     return result;
 }
-
-SelfTestResult SelfTest_RunPeriodic(const SscbMeasurements *m)
-{
-    SelfTestResult result;
-    result.adc_range_ok = (m != 0) &&
-                          (m->voltage_v >= 0.0f) &&
-                          (m->current_a >= 0.0f) &&
-                          (m->temperature_c > -50.0f) &&
-                          (m->temperature_c < 150.0f);
-    result.sampling_ok = result.adc_range_ok;
-    result.cmpss_config_ok = true;
-    return result;
-}
-
-bool SelfTest_Passed(const SelfTestResult *result)
-{
-    return (result != 0) && result->adc_range_ok && result->sampling_ok && result->cmpss_config_ok;
-}
-

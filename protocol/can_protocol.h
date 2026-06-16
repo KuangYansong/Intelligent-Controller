@@ -1,44 +1,22 @@
-#ifndef CAN_PROTOCOL_H
-#define CAN_PROTOCOL_H
+#ifndef SSCB_CAN_PROTOCOL_H
+#define SSCB_CAN_PROTOCOL_H
 
-#include <stdbool.h>
 #include <stdint.h>
-#include "sscb_types.h"
+#include "common/can_frame.h"
+#include "common/parameters.h"
+#include "common/sscb_types.h"
 
-#define SSCB_CAN_ID_REALTIME_BASE  (0x100u)
-#define SSCB_CAN_ID_FAULT_BASE     (0x200u)
-#define SSCB_CAN_ID_HEARTBEAT_BASE (0x300u)
-#define SSCB_CAN_ID_PARAM_BASE     (0x400u)
-#define SSCB_CAN_ID_TIME_BASE      (0x500u)
-#define SSCB_CAN_ID_CONTROL_BASE   (0x600u)
-
-typedef struct
-{
-    /* 11 位标准 CAN ID。 */
-    uint16_t id;
-    /* Data Length Code，表示有效数据字节数。 */
-    uint8_t dlc;
-    /* 最多 8 字节 CAN 负载。 */
-    uint8_t data[8];
-} SscbCanFrame;
-
-typedef enum
-{
-    SSCB_CTRL_CLEAR_FAULT = 0x01,
-    SSCB_CTRL_SOFTWARE_RESET = 0x02,
-    SSCB_CTRL_READ_FAULT_LOG = 0x03,
-    SSCB_CTRL_CLEAR_FAULT_LOG = 0x04
-} SscbControlCommand;
-
-uint16_t CanProtocol_MakeId(uint16_t base, uint8_t node_id);
-uint8_t CanProtocol_StatusByte(SscbSystemState state, uint32_t fault_bits, bool selftest_failed);
-SscbCanFrame CanProtocol_RealtimeFrame(uint8_t node_id, const SscbMeasurements *m, SscbSystemState state, uint32_t fault_bits, bool selftest_failed);
-SscbCanFrame CanProtocol_FaultFrame(uint8_t node_id, const SscbFaultRecord *record);
-SscbCanFrame CanProtocol_HeartbeatFrame(uint8_t node_id, SscbSystemState state, uint64_t runtime_s);
-SscbCanFrame CanProtocol_ParamResponse(uint8_t node_id, SscbStatus status, SscbParamId id, float value);
-bool CanProtocol_IsForNode(const SscbCanFrame *frame, uint16_t base, uint8_t node_id);
-bool CanProtocol_ParseTimeSync(const SscbCanFrame *frame, uint8_t node_id, uint32_t *unix_sec, uint32_t *millis);
-bool CanProtocol_ParseControl(const SscbCanFrame *frame, uint8_t node_id, SscbControlCommand *cmd);
-bool CanProtocol_ParseParamRequest(const SscbCanFrame *frame, uint8_t node_id, bool *write, SscbParamId *id, float *value);
+sscb_status_t sscb_can_make_realtime(uint8_t node_id, uint16_t status,
+                                     const sscb_measurements_t *m,
+                                     sscb_can_frame_t *frame);
+sscb_status_t sscb_can_make_fault(uint8_t node_id, sscb_fault_t fault,
+                                  sscb_state_t state, int16_t value_main,
+                                  uint32_t timestamp_low_ms,
+                                  sscb_can_frame_t *frame);
+sscb_status_t sscb_can_make_heartbeat(uint8_t node_id, sscb_state_t state,
+                                      uint16_t status, sscb_can_frame_t *frame);
+sscb_status_t sscb_can_handle_param_request(sscb_params_t *params,
+                                            const sscb_can_frame_t *request,
+                                            sscb_can_frame_t *response);
 
 #endif

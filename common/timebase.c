@@ -1,51 +1,37 @@
-#include "timebase.h"
+#include "common/timebase.h"
 
-static volatile uint32_t s_local_ms;
-static uint64_t s_unix_base_ms;
-static uint32_t s_sync_local_ms;
-static bool s_synced;
-
-void Timebase_Init(void)
+void sscb_timebase_init(sscb_timebase_t *tb)
 {
-    /* 本地时间从 0 开始，初始时尚未与真实世界时间同步。 */
-    s_local_ms = 0u;
-    s_unix_base_ms = 0u;
-    s_sync_local_ms = 0u;
-    s_synced = false;
-}
-
-void Timebase_Tick1ms(void)
-{
-    /* 这个函数通常应该由 1ms 定时中断驱动。 */
-    s_local_ms++;
-}
-
-uint32_t Timebase_NowMs(void)
-{
-    return s_local_ms;
-}
-
-uint64_t Timebase_NowUnixMs(void)
-{
-    if (!s_synced)
-    {
-        /* 没同步过时，先退化成本地运行毫秒数。 */
-        return (uint64_t)s_local_ms;
+    if (tb == 0) {
+        return;
     }
-
-    /* 真实时间 = 同步时刻的 Unix 毫秒 + 同步后流逝的本地毫秒。 */
-    return s_unix_base_ms + (uint32_t)(s_local_ms - s_sync_local_ms);
+    tb->unix_sec = 0u;
+    tb->local_ms = 0u;
+    tb->sync_local_ms = 0u;
+    tb->synced = 0u;
 }
 
-void Timebase_SyncUnix(uint32_t unix_sec, uint32_t millis_in_sec)
+void sscb_timebase_tick_ms(sscb_timebase_t *tb)
 {
-    /* 记录“当前本地毫秒”对应的真实 Unix 时间基准。 */
-    s_unix_base_ms = ((uint64_t)unix_sec * 1000ull) + (uint64_t)millis_in_sec;
-    s_sync_local_ms = s_local_ms;
-    s_synced = true;
+    if (tb != 0) {
+        tb->local_ms++;
+    }
 }
 
-bool Timebase_IsSynced(void)
+void sscb_timebase_sync(sscb_timebase_t *tb, uint32_t unix_sec, uint32_t millisec)
 {
-    return s_synced;
+    if (tb == 0) {
+        return;
+    }
+    tb->unix_sec = unix_sec;
+    tb->sync_local_ms = tb->local_ms - millisec;
+    tb->synced = 1u;
+}
+
+uint64_t sscb_timebase_absolute_ms(const sscb_timebase_t *tb)
+{
+    if (tb == 0 || tb->synced == 0u) {
+        return tb == 0 ? 0u : tb->local_ms;
+    }
+    return (uint64_t)tb->unix_sec * 1000u + (uint64_t)(tb->local_ms - tb->sync_local_ms);
 }

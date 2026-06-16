@@ -1,20 +1,18 @@
-#ifndef TIMEBASE_H
-#define TIMEBASE_H
+#ifndef SSCB_TIMEBASE_H
+#define SSCB_TIMEBASE_H
 
-#include <stdbool.h>
-#include <stdint.h>
+#include "common/sscb_types.h"
 
-/* 初始化本地运行时间。 */
-void Timebase_Init(void);
-/* 每经过 1ms 调用一次，用于累加本地时钟。 */
-void Timebase_Tick1ms(void);
-/* 获取上电以来的本地毫秒计数。 */
-uint32_t Timebase_NowMs(void);
-/* 获取当前 Unix 毫秒时间；若未同步则退化为本地毫秒。 */
-uint64_t Timebase_NowUnixMs(void);
-/* 用上位机下发的时间同步本地时钟。 */
-void Timebase_SyncUnix(uint32_t unix_sec, uint32_t millis_in_sec);
-/* 判断是否已经完成过时间同步。 */
-bool Timebase_IsSynced(void);
+typedef struct {
+    uint32_t unix_sec;
+    uint32_t local_ms;
+    uint32_t sync_local_ms;
+    uint8_t synced;
+} sscb_timebase_t;
+
+void sscb_timebase_init(sscb_timebase_t *tb);
+void sscb_timebase_tick_ms(sscb_timebase_t *tb);
+void sscb_timebase_sync(sscb_timebase_t *tb, uint32_t unix_sec, uint32_t millisec);
+uint64_t sscb_timebase_absolute_ms(const sscb_timebase_t *tb);
 
 #endif

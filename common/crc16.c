@@ -1,27 +1,23 @@
-#include "crc16.h"
+#include "common/crc16.h"
 
-uint16_t Crc16_CcittFalse(const void *data, size_t len)
+uint16_t sscb_crc16_ccitt(const uint8_t *data, uint16_t length)
 {
-    const uint8_t *bytes = (const uint8_t *)data;
-    /* CCITT-FALSE 的初值通常为 0xFFFF。 */
     uint16_t crc = 0xFFFFu;
+    uint16_t i;
+    uint8_t bit;
 
-    while (len-- > 0u)
-    {
-        /* 逐字节、逐 bit 推进 CRC 状态机。 */
-        crc ^= (uint16_t)(*bytes++) << 8;
-        for (uint8_t bit = 0u; bit < 8u; bit++)
-        {
-            if ((crc & 0x8000u) != 0u)
-            {
+    if (data == 0) {
+        return crc;
+    }
+    for (i = 0u; i < length; i++) {
+        crc ^= (uint16_t)data[i] << 8;
+        for (bit = 0u; bit < 8u; bit++) {
+            if ((crc & 0x8000u) != 0u) {
                 crc = (uint16_t)((crc << 1) ^ 0x1021u);
-            }
-            else
-            {
-                crc = (uint16_t)(crc << 1);
+            } else {
+                crc <<= 1;
             }
         }
     }
-
     return crc;
 }

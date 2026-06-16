@@ -1,10 +1,8 @@
-#ifndef CRC16_H
-#define CRC16_H
+#ifndef SSCB_CRC16_H
+#define SSCB_CRC16_H
 
-#include <stddef.h>
-#include <stdint.h>
+#include "common/sscb_types.h"
 
-/* 计算 CRC16/CCITT-FALSE，常用于参数块完整性校验。 */
-uint16_t Crc16_CcittFalse(const void *data, size_t len);
+uint16_t sscb_crc16_ccitt(const uint8_t *data, uint16_t length);
 
 #endif

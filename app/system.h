@@ -1,36 +1,33 @@
-#ifndef SYSTEM_H
-#define SYSTEM_H
+#ifndef SSCB_SYSTEM_H
+#define SSCB_SYSTEM_H
 
 #include <stdbool.h>
-#include "protocol_service.h"
-#include "protection.h"
-#include "sscb_types.h"
+#include "common/parameters.h"
+#include "common/sscb_types.h"
+#include "protection/protection.h"
+#include "storage/fault_log.h"
 
-typedef struct
-{
-    /* FRAM 中保存的可配置参数，例如阈值、节点号、校准系数。 */
-    SscbParams params;
-    /* ADC 原始采样值，还没有换算成物理量。 */
-    SscbAdcRaw raw;
-    /* 已经换算好的电压、电流、温度等测量结果。 */
-    SscbMeasurements measurements;
-    /* 保护逻辑运行状态，例如是否跳闸、当前故障、恢复过程。 */
-    ProtectionService protection;
-    /* 协议服务状态，负责处理 CAN 收发。 */
-    ProtocolService protocol;
-    /* 10ms 控制周期的时间戳。 */
-    uint32_t last_10ms;
-    /* 实时遥测报文上次发送时间。 */
-    uint32_t last_realtime;
-    /* 心跳报文上次发送时间。 */
-    uint32_t last_heartbeat;
-    /* 标记系统是否已经完成初始化。 */
-    bool initialized;
-} SystemContext;
+typedef struct {
+    sscb_params_t params;
+    sscb_protection_t protection;
+    sscb_fault_log_t fault_log;
+    sscb_state_t state;
+    sscb_fault_t active_fault;
+    uint16_t status_word;
+    uint32_t time_ms;
+    uint16_t recover_elapsed_ms;
+    bool trip_clear;
+    bool driver_ready;
+    bool fault_conditions_clear;
+} sscb_system_t;
 
-SscbStatus System_Init(SystemContext *ctx);
-void System_RunOnce(SystemContext *ctx);
-void System_OnCanRx(const SscbCanFrame *frame);
-void System_OnShortTripInterrupt(void);
+void sscb_system_init(sscb_system_t *sys);
+sscb_state_t sscb_system_state(const sscb_system_t *sys);
+sscb_status_t sscb_system_start(sscb_system_t *sys);
+void sscb_system_tick_1ms(sscb_system_t *sys, const sscb_measurements_t *m);
+void sscb_system_on_short_trip(sscb_system_t *sys, const sscb_measurements_t *m);
+void sscb_system_set_safety_inputs(sscb_system_t *sys, bool trip_clear,
+                                   bool driver_ready, bool fault_conditions_clear);
+sscb_status_t sscb_system_manual_reset(sscb_system_t *sys);
 
 #endif

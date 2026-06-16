@@ -1,18 +1,35 @@
-#ifndef FAULT_LOG_H
-#define FAULT_LOG_H
+#ifndef SSCB_FAULT_LOG_H
+#define SSCB_FAULT_LOG_H
 
-#include <stdint.h>
-#include "sscb_types.h"
+#include "common/sscb_types.h"
 
-/* 初始化故障日志元数据。 */
-SscbStatus FaultLog_Init(void);
-/* 追加一条新的故障记录。 */
-SscbStatus FaultLog_Append(const SscbFaultRecord *record);
-/* 按时间顺序读取第 index 条故障。 */
-SscbStatus FaultLog_Read(uint8_t index, SscbFaultRecord *record);
-/* 清空故障日志。 */
-SscbStatus FaultLog_Clear(void);
-/* 返回当前已记录的故障条数。 */
-uint8_t FaultLog_Count(void);
+#define SSCB_FAULT_LOG_CAPACITY 50u
+
+typedef struct {
+    uint16_t sequence;
+    sscb_fault_t fault;
+    sscb_state_t state;
+    uint8_t flags;
+    uint64_t timestamp_ms;
+    uint16_t voltage_dv;
+    int16_t current_pga_da;
+    int16_t current_raw_da;
+    int16_t temperature_dc;
+    uint32_t i2t_value;
+    uint16_t adc_flags;
+    uint16_t driver_flags;
+} sscb_fault_record_t;
+
+typedef struct {
+    sscb_fault_record_t records[SSCB_FAULT_LOG_CAPACITY];
+    uint16_t write_index;
+    uint16_t count;
+    uint32_t total_count;
+} sscb_fault_log_t;
+
+void sscb_fault_log_init(sscb_fault_log_t *log);
+sscb_status_t sscb_fault_log_append(sscb_fault_log_t *log, const sscb_fault_record_t *record);
+uint16_t sscb_fault_log_count(const sscb_fault_log_t *log);
+sscb_status_t sscb_fault_log_get_latest(const sscb_fault_log_t *log, uint16_t latest_index, sscb_fault_record_t *out);
 
 #endif

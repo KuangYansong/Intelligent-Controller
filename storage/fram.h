@@ -1,15 +1,17 @@
-#ifndef FRAM_H
-#define FRAM_H
+#ifndef SSCB_FRAM_H
+#define SSCB_FRAM_H
 
-#include <stddef.h>
-#include <stdint.h>
-#include "sscb_types.h"
+#include "common/sscb_types.h"
 
-/* 初始化 FRAM 抽象层。 */
-SscbStatus Fram_Init(void);
-/* 从 FRAM 读取指定地址范围。 */
-SscbStatus Fram_Read(uint32_t address, void *data, size_t len);
-/* 向 FRAM 写入指定地址范围。 */
-SscbStatus Fram_Write(uint32_t address, const void *data, size_t len);
+#define SSCB_FRAM_MEMORY_SIZE 0x40000ul
+
+typedef struct {
+    uint8_t initialized;
+} sscb_fram_t;
+
+void sscb_fram_init(sscb_fram_t *fram);
+sscb_status_t sscb_fram_hw_init(void);
+sscb_status_t sscb_fram_read(const sscb_fram_t *fram, uint32_t address, uint8_t *data, uint16_t len);
+sscb_status_t sscb_fram_write(sscb_fram_t *fram, uint32_t address, const uint8_t *data, uint16_t len);
 
 #endif

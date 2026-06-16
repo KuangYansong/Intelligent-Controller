@@ -1,184 +1,81 @@
-#include "param_store.h"
-#include <stddef.h>
-#include "crc16.h"
-#include "fram.h"
-#include "sscb_config.h"
+#include "storage/param_store.h"
 
-static uint16_t params_crc(const SscbParams *params)
+static uint32_t fnv1a32(const uint8_t *data, uint16_t length)
 {
-    /* crc16 字段本身不参与 CRC 计算，所以只算它前面的字节。 */
-    return Crc16_CcittFalse(params, offsetof(SscbParams, crc16));
+    uint16_t i;
+    uint32_t hash = 2166136261u;
+    for (i = 0u; i < length; i++) {
+        hash ^= data[i];
+        hash *= 16777619u;
+    }
+    return hash;
 }
 
-void ParamStore_Defaults(SscbParams *params)
+static void make_image(sscb_param_image_t *image, const sscb_params_t *params, uint32_t sequence)
 {
-    if (params == 0)
-    {
+    image->magic = SSCB_PARAM_STORE_MAGIC;
+    image->version = params->parameter_version;
+    image->length = (uint16_t)sizeof(sscb_params_t);
+    image->sequence = sequence;
+    image->params = *params;
+    image->crc32 = fnv1a32((const uint8_t *)&image->params, image->length);
+}
+
+static int valid_image(const sscb_param_image_t *image)
+{
+    if (image->magic != SSCB_PARAM_STORE_MAGIC || image->length != sizeof(sscb_params_t)) {
+        return 0;
+    }
+    return image->crc32 == fnv1a32((const uint8_t *)&image->params, image->length);
+}
+
+void sscb_param_store_init(sscb_param_store_t *store)
+{
+    if (store == 0) {
         return;
     }
-
-    /* 这些值定义了设备出厂或损坏恢复后的默认工作参数。 */
-    params->magic = SSCB_PARAMS_MAGIC;
-    params->version = SSCB_PARAMS_VERSION;
-    params->node_id = SSCB_DEFAULT_NODE_ID;
-    params->recover_mode = 0u;
-    params->short_threshold_a = SSCB_DEFAULT_SHORT_A;
-    params->overcurrent_threshold_a = SSCB_DEFAULT_OVERCURRENT_A;
-    params->overvoltage_threshold_v = SSCB_DEFAULT_OVERVOLTAGE_V;
-    params->overtemp_threshold_c = SSCB_DEFAULT_OVERTEMP_C;
-    params->i2t_threshold = SSCB_DEFAULT_I2T;
-    params->voltage_k = SSCB_VOLTAGE_SCALE_DEFAULT;
-    params->current_k = SSCB_CURRENT_SCALE_DEFAULT;
-    params->temp_k = SSCB_TEMP_SCALE_DEFAULT;
-    params->crc16 = params_crc(params);
+    store->slot_a.magic = 0u;
+    store->slot_b.magic = 0u;
 }
 
-SscbStatus ParamStore_Load(SscbParams *params)
+sscb_status_t sscb_param_store_save(sscb_param_store_t *store, const sscb_params_t *params)
 {
-    if (params == 0)
-    {
-        return SSCB_BAD_PARAM;
+    uint32_t seq_a;
+    uint32_t seq_b;
+    if (store == 0 || params == 0) {
+        return SSCB_ERR_ARG;
     }
 
-    /* 先从 FRAM 固定地址读取整块参数结构体。 */
-    SscbStatus status = Fram_Read(SSCB_FRAM_PARAM_ADDR, params, sizeof(*params));
-    if (status != SSCB_OK)
-    {
-        return status;
+    seq_a = valid_image(&store->slot_a) ? store->slot_a.sequence : 0u;
+    seq_b = valid_image(&store->slot_b) ? store->slot_b.sequence : 0u;
+    if (seq_a <= seq_b) {
+        make_image(&store->slot_a, params, seq_b + 1u);
+    } else {
+        make_image(&store->slot_b, params, seq_a + 1u);
     }
-
-    /* magic/version/crc/node_id 任一异常，都认为参数无效并恢复默认值。 */
-    if ((params->magic != SSCB_PARAMS_MAGIC) ||
-        (params->version != SSCB_PARAMS_VERSION) ||
-        (params->crc16 != params_crc(params)) ||
-        (params->node_id == 0u) ||
-        (params->node_id > 127u))
-    {
-        ParamStore_Defaults(params);
-        return ParamStore_Save(params);
-    }
-
     return SSCB_OK;
 }
 
-SscbStatus ParamStore_Save(SscbParams *params)
+sscb_status_t sscb_param_store_load(sscb_param_store_t *store, sscb_params_t *params)
 {
-    if (params == 0)
-    {
-        return SSCB_BAD_PARAM;
+    int a_valid;
+    int b_valid;
+    if (store == 0 || params == 0) {
+        return SSCB_ERR_ARG;
+    }
+    a_valid = valid_image(&store->slot_a);
+    b_valid = valid_image(&store->slot_b);
+
+    if (a_valid && (!b_valid || store->slot_a.sequence >= store->slot_b.sequence)) {
+        *params = store->slot_a.params;
+        return SSCB_OK;
+    }
+    if (b_valid) {
+        *params = store->slot_b.params;
+        return SSCB_OK;
     }
 
-    /* 每次保存前都刷新识别头和 CRC，确保掉电后可校验。 */
-    params->magic = SSCB_PARAMS_MAGIC;
-    params->version = SSCB_PARAMS_VERSION;
-    params->crc16 = params_crc(params);
-    return Fram_Write(SSCB_FRAM_PARAM_ADDR, params, sizeof(*params));
-}
-
-SscbStatus ParamStore_Get(const SscbParams *params, SscbParamId id, float *value)
-{
-    if ((params == 0) || (value == 0))
-    {
-        return SSCB_BAD_PARAM;
-    }
-
-    /* 这里把枚举编号映射到结构体中的实际字段。 */
-    switch (id)
-    {
-    case SSCB_PARAM_SHORT_THRESHOLD:
-        *value = params->short_threshold_a;
-        break;
-    case SSCB_PARAM_OVERCURRENT_THRESHOLD:
-        *value = params->overcurrent_threshold_a;
-        break;
-    case SSCB_PARAM_OVERVOLTAGE_THRESHOLD:
-        *value = params->overvoltage_threshold_v;
-        break;
-    case SSCB_PARAM_OVERTEMP_THRESHOLD:
-        *value = params->overtemp_threshold_c;
-        break;
-    case SSCB_PARAM_I2T_THRESHOLD:
-        *value = params->i2t_threshold;
-        break;
-    case SSCB_PARAM_VOLTAGE_K:
-        *value = params->voltage_k;
-        break;
-    case SSCB_PARAM_CURRENT_K:
-        *value = params->current_k;
-        break;
-    case SSCB_PARAM_TEMP_K:
-        *value = params->temp_k;
-        break;
-    case SSCB_PARAM_NODE_ID:
-        *value = (float)params->node_id;
-        break;
-    case SSCB_PARAM_RECOVER_MODE:
-        *value = (float)params->recover_mode;
-        break;
-    default:
-        return SSCB_NOT_FOUND;
-    }
-
-    return SSCB_OK;
-}
-
-SscbStatus ParamStore_Set(SscbParams *params, SscbParamId id, float value)
-{
-    if (params == 0)
-    {
-        return SSCB_BAD_PARAM;
-    }
-
-    if (value < 0.0f)
-    {
-        /* 当前参数集合不允许出现负值。 */
-        return SSCB_BAD_PARAM;
-    }
-
-    /* 根据参数编号修改对应字段，并在必要时做范围校验。 */
-    switch (id)
-    {
-    case SSCB_PARAM_SHORT_THRESHOLD:
-        params->short_threshold_a = value;
-        break;
-    case SSCB_PARAM_OVERCURRENT_THRESHOLD:
-        params->overcurrent_threshold_a = value;
-        break;
-    case SSCB_PARAM_OVERVOLTAGE_THRESHOLD:
-        params->overvoltage_threshold_v = value;
-        break;
-    case SSCB_PARAM_OVERTEMP_THRESHOLD:
-        params->overtemp_threshold_c = value;
-        break;
-    case SSCB_PARAM_I2T_THRESHOLD:
-        params->i2t_threshold = value;
-        break;
-    case SSCB_PARAM_VOLTAGE_K:
-        params->voltage_k = value;
-        break;
-    case SSCB_PARAM_CURRENT_K:
-        params->current_k = value;
-        break;
-    case SSCB_PARAM_TEMP_K:
-        params->temp_k = value;
-        break;
-    case SSCB_PARAM_NODE_ID:
-        if ((value < 1.0f) || (value > 127.0f))
-        {
-            return SSCB_BAD_PARAM;
-        }
-        params->node_id = (uint8_t)value;
-        break;
-    case SSCB_PARAM_RECOVER_MODE:
-        if (value > 255.0f)
-        {
-            return SSCB_BAD_PARAM;
-        }
-        params->recover_mode = (uint8_t)value;
-        break;
-    default:
-        return SSCB_NOT_FOUND;
-    }
-
-    return ParamStore_Save(params);
+    sscb_params_load_defaults(params);
+    (void)sscb_param_store_save(store, params);
+    return SSCB_ERR_NOT_FOUND;
 }
